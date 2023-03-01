@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"go/ast"
@@ -11,6 +10,7 @@ import (
 	"go/token"
 	"os"
 
+	"github.com/3JoB/ulib/json"
 	"golang.org/x/tools/go/buildutil"
 )
 
@@ -33,14 +33,14 @@ func main() {
 	flag.Parse()
 	fset := token.NewFileSet()
 	parserMode := parser.ParseComments
-	if *importsOnly == true {
+	if *importsOnly {
 		parserMode = parser.ImportsOnly
 	}
 
 	var fileAst *ast.File
 	var err error
 
-	if *modified == true {
+	if *modified {
 		archive, err := buildutil.ParseOverlayArchive(os.Stdin)
 		if err != nil {
 			reportError(fmt.Errorf("failed to parse -modified archive: %v", err))
@@ -55,7 +55,7 @@ func main() {
 	}
 
 	if err != nil {
-		reportError(fmt.Errorf("Could not parse file %s", *file))
+		reportError(fmt.Errorf("could not parse file %s", *file))
 	}
 
 	declarations := []Declaration{}
@@ -65,37 +65,37 @@ func main() {
 		case *ast.FuncDecl:
 			receiverType, err := getReceiverType(fset, decl)
 			if err != nil {
-				reportError(fmt.Errorf("Failed to parse receiver type: %v", err))
+				reportError(fmt.Errorf("failed to parse receiver type: %v", err))
 			}
 			declarations = append(declarations, Declaration{
-				decl.Name.String(),
-				"function",
-				receiverType,
-				decl.Pos(),
-				decl.End(),
-				[]Declaration{},
+				Label:        decl.Name.String(),
+				Type:         "function",
+				ReceiverType: receiverType,
+				Start:        decl.Pos(),
+				End:          decl.End(),
+				Children:     []Declaration{},
 			})
 		case *ast.GenDecl:
 			for _, spec := range decl.Specs {
 				switch spec := spec.(type) {
 				case *ast.ImportSpec:
 					declarations = append(declarations, Declaration{
-						spec.Path.Value,
-						"import",
-						"",
-						spec.Pos(),
-						spec.End(),
-						[]Declaration{},
+						Label:        spec.Path.Value,
+						Type:         "import",
+						ReceiverType: "",
+						Start:        spec.Pos(),
+						End:          spec.End(),
+						Children:     []Declaration{},
 					})
 				case *ast.TypeSpec:
-					//TODO: Members if it's a struct or interface type?
+					// TODO: Members if it's a struct or interface type?
 					declarations = append(declarations, Declaration{
-						spec.Name.String(),
-						"type",
-						"",
-						spec.Pos(),
-						spec.End(),
-						[]Declaration{},
+						Label:        spec.Name.String(),
+						Type:         "type",
+						ReceiverType: "",
+						Start:        spec.Pos(),
+						End:          spec.End(),
+						Children:     []Declaration{},
 					})
 				case *ast.ValueSpec:
 					for _, id := range spec.Names {
@@ -104,35 +104,33 @@ func main() {
 							varOrConst = "constant"
 						}
 						declarations = append(declarations, Declaration{
-							id.Name,
-							varOrConst,
-							"",
-							id.Pos(),
-							id.End(),
-							[]Declaration{},
+							Label:        id.Name,
+							Type:         varOrConst,
+							ReceiverType: "",
+							Start:        id.Pos(),
+							End:          id.End(),
+							Children:     []Declaration{},
 						})
 					}
 				default:
-					reportError(fmt.Errorf("Unknown token type: %s", decl.Tok))
+					reportError(fmt.Errorf("unknown token type: %s", decl.Tok))
 				}
 			}
 		default:
-			reportError(fmt.Errorf("Unknown declaration @ %v", decl.Pos()))
+			reportError(fmt.Errorf("unknown declaration @ %v", decl.Pos()))
 		}
 	}
 
-	pkg := []*Declaration{&Declaration{
-		fileAst.Name.String(),
-		"package",
-		"",
-		fileAst.Pos(),
-		fileAst.End(),
-		declarations,
+	pkg := []*Declaration{{
+		Label:        fileAst.Name.String(),
+		Type:         "package",
+		ReceiverType: "",
+		Start:        fileAst.Pos(),
+		End:          fileAst.End(),
+		Children:     declarations,
 	}}
 
-	str, _ := json.Marshal(pkg)
-	fmt.Println(string(str))
-
+	fmt.Println(json.Marshal(pkg).String())
 }
 
 func getReceiverType(fset *token.FileSet, decl *ast.FuncDecl) (string, error) {

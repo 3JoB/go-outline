@@ -1,5 +1,14 @@
-module github.com/ramya-rao-a/go-outline
+module github.com/3JoB/go-outline
 
-go 1.16
+go 1.20
 
-require golang.org/x/tools v0.1.1
+require (
+	github.com/3JoB/ulib v1.5.2
+	golang.org/x/tools v0.6.0
+)
+
+require (
+	github.com/3JoB/unsafeConvert v0.0.1 // indirect
+	github.com/goccy/go-json v0.10.0 // indirect
+	github.com/goccy/go-reflect v1.2.0 // indirect
+)
